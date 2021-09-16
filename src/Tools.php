@@ -22,7 +22,12 @@ class Tools
      *
      * @var string
      */
-    public static $API_URL = 'http://api.nfcontador-sandbox.nfservice.com.br/api/systems';
+    public static $API_URL = [
+        1 => 'https://api.fuganholi-contabil.com.br/api',
+        2 => 'http://api.nfcontador.com.br/api',
+        3 => 'https://api.sandbox.fuganholi-contabil.com.br/api',
+        4 => 'https://api.dusk.fuganholi-contabil.com.br/api'
+    ];
 
     /**
      * Variável responsável por armazenar os dados a serem utilizados para comunicação com a API
@@ -32,6 +37,8 @@ class Tools
      */
     private $config = [
         'token' => '',
+        'company-cnpj' => '',
+        'environment' => '',
         'debug' => false,
         'upload' => false,
         'decode' => true
@@ -91,6 +98,34 @@ class Tools
     }
 
     /**
+     * Função responsável por definir o cnpj a ser utilizado para comunicação com a API
+     *
+     * @param string $cnpj CNPJ para autenticação na API
+     *
+     * @access public
+     * @return void
+     */
+    public function setCnpj(string $cnpj): void
+    {
+        $this->config['company-cnpj'] = $cnpj;
+    }
+
+    /**
+     * Função responsável por setar o ambiente utilizado na API
+     *
+     * @param int $environment Ambiente API (1 - Produção | 2 - Local | 3 - Sandbox | 4 - Dusk)
+     *
+     * @access public
+     * @return void
+     */
+    public function setEnvironment(int $environment) :void
+    {
+        if (in_array($environment, [1, 2, 3, 4])) {
+            $this->config['environment'] = $environment;
+        }
+    }
+
+    /**
      * Recupera se é upload ou não
      *
      *
@@ -115,6 +150,29 @@ class Tools
     }
 
     /**
+     * Recupera o CNPJ setado para comunicação com a API
+     *
+     *
+     * @access public
+     * @return string
+     */
+    public function getCnpj() : string
+    {
+        return $this->config['company-cnpj'];
+    }
+
+    /**
+     * Recupera o ambiente setado para comunicação com a API
+     *
+     * @access public
+     * @return int
+     */
+    public function getEnvironment() :int
+    {
+        return $this->config['environment'];
+    }
+
+    /**
      * Retorna os cabeçalhos padrão para comunicação com a API
      *
      * @access private
@@ -123,7 +181,8 @@ class Tools
     private function getDefaultHeaders() :array
     {
         $headers = [
-            'Authorization: Bearer '.$this->config['token'],
+            'access-token: '.$this->config['token'],
+            'company-cnpj: '.$this->config['company-cnpj'],
             'Accept: application/json',
         ];
 
@@ -152,13 +211,17 @@ class Tools
                 ];
             }
 
-            $dados = $this->get('/companies', $params);
+            $response = $this->get('/systems/companies', $params);
 
-            if (!isset($dados['body']->message)) {
-                return $dados;
+            if ($response['httpCode'] === 200) {
+                return $response;
             }
 
-            throw new Exception($dados['body']->message, 1);
+            if (isset($response['body']->errors) && !empty($response['body']->errors)) {
+                throw new \Exception("\r\n".implode("\r\n", $response['body']->errors));
+            } else {
+                throw new \Exception(json_encode($response));
+            }
         } catch (Exception $error) {
             throw new Exception($error, 1);
         }
@@ -187,28 +250,24 @@ class Tools
         }
 
         try {
-            $dados = $this->post('companies', $dados, $params);
+            $response = $this->post('systems/companies', $dados, $params);
 
-            if ($dados['httpCode'] == 200) {
-                return $dados;
+            if ($response['httpCode'] === 200) {
+                return $response;
             }
 
-            foreach ($dados['body']->errors as $key => $error) {
-                if (strpos($key, 'position') !== false) {
-                    $errors[] = implode('; ', $error);
-                } else {
-                    $errors[] = $error;
-                }
+            if (isset($response['body']->errors) && !empty($response['body']->errors)) {
+                throw new \Exception("\r\n".implode("\r\n", $response['body']->errors));
+            } else {
+                throw new \Exception(json_encode($response));
             }
-
-            throw new Exception("\r\n".implode("\r\n", $errors), 1);
         } catch (Exception $error) {
             throw $error;
         }
     }
 
     /**
-     * Atualiza uma empresa nova no NFContador
+     * Atualiza uma empresa no NFContador
      */
     public function atualizaEmpresa(int $id, array $dados, array $params = []): array
     {
@@ -230,21 +289,17 @@ class Tools
         }
 
         try {
-            $dados = $this->put('companies/'.$id, $dados, $params);
+            $response = $this->put('systems/companies/'.$id, $dados, $params);
 
-            if ($dados['httpCode'] == 200) {
-                return $dados;
+            if ($response['httpCode'] === 200) {
+                return $response;
             }
 
-            foreach ($dados['body']->errors as $key => $error) {
-                if (strpos($key, 'position') !== false) {
-                    $errors[] = implode('; ', $error);
-                } else {
-                    $errors[] = $error;
-                }
+            if (isset($response['body']->errors) && !empty($response['body']->errors)) {
+                throw new \Exception("\r\n".implode("\r\n", $response['body']->errors));
+            } else {
+                throw new \Exception(json_encode($response));
             }
-
-            throw new Exception("\r\n".implode("\r\n", $errors), 1);
         } catch (Exception $error) {
             throw new Exception($error, 1);
         }
@@ -253,30 +308,199 @@ class Tools
     /**
      * Deleta uma empresa
      */
-    public function deletaEmpresa(int $id, array $params = [])
+    public function deletaEmpresa(int $id, array $params = []): array
     {
         if (!isset($id) || empty($id)) {
             throw new Exception("O ID NFContador da empresa é obrigatório para exclusão", 1);
         }
 
         try {
-            $dados = $this->delete('companies/'.$id, $params);
+            $response = $this->delete('systems/companies/'.$id, $params);
 
-            if ($dados['httpCode'] == 200) {
-                return 'Empresa deletada com sucesso';
+            if ($response['httpCode'] === 200) {
+                return $response;
             }
 
-            foreach ($dados['body']->errors as $key => $error) {
-                if (strpos($key, 'position') !== false) {
-                    $errors[] = implode('; ', $error);
-                } else {
-                    $errors[] = $error;
-                }
+            if (isset($response['body']->errors) && !empty($response['body']->errors)) {
+                throw new \Exception("\r\n".implode("\r\n", $response['body']->errors));
+            } else {
+                throw new \Exception(json_encode($response));
             }
-
-            throw new Exception("\r\n".implode("\r\n", $errors), 1);
         } catch (Exception $error) {
             throw new Exception($error, 1);
+        }
+    }
+
+    /**
+     * Sincroniza uma empresa como cliente do um contador
+     */
+    public function sincronizaCliente(array $dados, array $params = []): array
+    {
+        $errors = [];
+        if (!isset($dados['cpfcnpj']) || empty($dados['cpfcnpj'])) {
+            $errors[] = 'Informe o CPF/CNPJ do cliente';
+        }
+        if (!isset($dados['name']) || empty($dados['name'])) {
+            $errors[] = 'Informe o Nome/Razão Social do cliente';
+        }
+        if (!isset($dados['email']) || empty($dados['email'])) {
+            $errors[] = 'Informe o E-mail Social do cliente';
+        }
+        if (!empty($errors)) {
+            throw new Exception(implode("\r\n", $errors), 1);
+        }
+
+        try {
+            $response = $this->post('customers/sync', $dados, $params);
+
+            if ($response['httpCode'] === 200) {
+                return $response;
+            }
+
+            if (isset($response['body']->errors) && !empty($response['body']->errors)) {
+                throw new \Exception("\r\n".implode("\r\n", $response['body']->errors));
+            } else {
+                throw new \Exception(json_encode($response));
+            }
+        } catch (Exception $error) {
+            throw new Exception($error, 1);
+        }
+    }
+
+    /**
+     * Lista os documentos de um cliente
+     */
+    public function listaDocumentos(array $params): array
+    {
+        try {
+            $response = $this->get('customers/documents', $params);
+
+            if ($response['httpCode'] === 200) {
+                return $response;
+            }
+
+            if (isset($response['body']->errors) && !empty($response['body']->errors)) {
+                throw new \Exception("\r\n".implode("\r\n", $response['body']->errors));
+            } else {
+                throw new \Exception(json_encode($response));
+            }
+        } catch (\Throwable $th) {
+            throw new Exception($th, 1);
+        }
+    }
+
+    /**
+     * Envia um documento para o NFContador
+     */
+    public function enviaDocumento(array $dados, array $params = []): array
+    {
+        $errors = [];
+        if (!isset($dados['person_id']) || empty($dados['person_id'])) {
+            $errors[] = 'Informe a ID do cliente no NFContador';
+        }
+        if (!isset($dados['type']) || empty($dados['type'])) {
+            $errors[] = 'Informe o tipo de documento sendo enviado';
+        } else if (!in_array((int)$dados['type'], [1, 2, 3, 4, 5])) {
+            $errors[] = 'Informe um tipo de documento válido';
+        }
+        if (!isset($dados['document']) || empty($dados['document'])) {
+            $errors[] = 'Informe o documento a ser enviado';
+        }
+
+        if (!empty($errors)) {
+            throw new Exception(implode("\r\n", $errors), 1);
+        }
+
+        try {
+            $response = $this->post('customers/documents', $dados, $params);
+
+            if ($response['httpCode'] === 200) {
+                return $response;
+            }
+
+            if (isset($response['body']->errors) && !empty($response['body']->errors)) {
+                throw new \Exception("\r\n".implode("\r\n", $response['body']->errors));
+            } else {
+                throw new \Exception(json_encode($response));
+            }
+        } catch (\Throwable $th) {
+            throw new Exception($th, 1);
+        }
+    }
+
+    /**
+     * Função responsável por visualizar um documento
+     *
+     * @param int $document_id ID do documento
+     * @param int $type tipo de acesso 1 - Download / 2 - Visualização
+     * @return \stdClass
+     */
+    public function buscaDocumento(int $document_id, int $type = 1, array $params = []) :array
+    {
+        try {
+            $params = array_filter($params, function($item) {
+                return $item['name'] !== 'type';
+            }, ARRAY_FILTER_USE_BOTH);
+
+            if (!empty($type)) {
+                $params[] = [
+                    'name' => 'type',
+                    'value' => $type
+                ];
+            }
+
+            $response = $this->get("customers/documents/$document_id", $params);
+
+            if ($response['httpCode'] === 200) {
+                return $response;
+            }
+
+            if (isset($response['body']->errors) && !empty($response['body']->errors)) {
+                throw new \Exception("\r\n".implode("\r\n", $response['body']->errors));
+            } else {
+                throw new \Exception(json_encode($response));
+            }
+        } catch (\Exception $error) {
+            throw $error;
+        }
+    }
+
+    /**
+     * Função responsável por atualizar a resposta de sincronização de um clinete Contador
+     *
+     * @param array $dados Dados a serem enviados para a atualização
+     *
+     * @access public
+     * @return object
+     */
+    public function atualizaRespostaSincronizacao(array $dados, array $params = [])
+    {
+        $errors = [];
+        if (!isset($dados['sync']) || ($dados['sync'] !== true && $dados['sync'] !== false)) {
+            $errors[] = 'A resposta deve ser de forma booleana';
+        }
+        if (!isset($dados['cpfcnpj']) || empty($dados['cpfcnpj'])) {
+            $errors[] = 'Informe o CPF/CNPJ do cliente';
+        }
+
+        if (!empty($errors)) {
+            throw new Exception(implode("\r\n", $errors), 1);
+        }
+
+        try {
+            $response = $this->post('systems/response/sync', $dados, $params);
+
+            if ($response['httpCode'] === 200) {
+                return $response;
+            }
+
+            if (isset($response['body']->errors) && !empty($response['body']->errors)) {
+                throw new \Exception("\r\n".implode("\r\n", $response['body']->errors));
+            } else {
+                throw new \Exception(json_encode($response));
+            }
+        } catch (\Throwable $th) {
+            throw new Exception($th, 1);
         }
     }
 
@@ -428,7 +652,7 @@ class Tools
             $path = '/' . $path;
         }
 
-        $url = self::$API_URL.$path;
+        $url = self::$API_URL[$this->config['environment']].$path;
 
         $curlC = curl_init();
 
