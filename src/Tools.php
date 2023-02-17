@@ -466,6 +466,47 @@ class Tools
     }
 
     /**
+     * Audita um usuário solicitante de um documento no NFContador
+     *
+     * @param array $dados dados do usuário a ser auditado no documento
+     * @param int $document_id ID do documento a ser auditado
+     * @return \stdClass
+     */
+    public function auditaUsuarioSolicitanteDocumento(array $dados, int $document_id, array $params = []): array
+    {
+        $errors = [];
+        if (!isset($dados['name']) || empty($dados['name'])) {
+            $errors[] = 'É obrigatório o envio do nome do solicitante do documento';
+        }
+        if (!isset($dados['user_id']) || empty($dados['user_id'])) {
+            $errors[] = 'O id do usuário solicitante do documento é obrigatório';
+        }
+        if (!isset($document_id) || empty($document_id)) {
+            $errors[] = 'O id do documento a ser requisitado é obrigatório';
+        }
+        if (!empty($errors)) {
+            throw new Exception(implode("\r\n", $errors), 1);
+        }
+
+        try {
+            $response = $this->post("/customers/documents/$document_id/audit", $dados, $params);
+
+            if ($response['httpCode'] === 200) {
+                return $response;
+            }
+
+            if (isset($response['body']->errors) && !empty($response['body']->errors)) {
+                throw new \Exception("\r\n".implode("\r\n", $response['body']->errors));
+            } else {
+                throw new \Exception(json_encode($response));
+            }
+        } catch (Exception $error) {
+            throw $error;
+        }
+    }
+
+
+    /**
      * Função responsável por atualizar a resposta de sincronização de um clinete Contador
      *
      * @param array $dados Dados a serem enviados para a atualização
