@@ -400,7 +400,7 @@ class Tools
         }
         if (!isset($dados['type']) || empty($dados['type'])) {
             $errors[] = 'Informe o tipo de documento sendo enviado';
-        } else if (!in_array((int)$dados['type'], [1, 2, 3, 4, 5])) {
+        } else if (!in_array((int)$dados['type'], [1, 2, 3, 4, 5, 6])) {
             $errors[] = 'Informe um tipo de documento válido';
         }
         if (!isset($dados['document']) || empty($dados['document'])) {
