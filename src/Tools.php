@@ -368,6 +368,37 @@ class Tools
     }
 
     /**
+    * Remove Sincronização de uma empresa como cliente de um contador
+    */
+    public function removeSincronizacaoCliente(string $cpfcnpj, array $params = []): array
+    {
+        $errors = [];
+        if (!isset($cpfcnpj) || empty($cpfcnpj)) {
+            $errors[] = 'Informe o CPF/CNPJ do cliente';
+        }
+
+        if (!empty($errors)) {
+            throw new Exception(implode("\r\n", $errors), 1);
+        }
+
+        try {
+            $response = $this->post('customers/removesync', [$cpfcnpj], $params);
+
+            if ($response['httpCode'] === 200) {
+                return $response;
+            }
+
+            if (isset($response['body']->errors) && !empty($response['body']->errors)) {
+                throw new \Exception("\r\n".implode("\r\n", $response['body']->errors));
+            } else {
+                throw new \Exception(json_encode($response));
+            }
+        } catch (Exception $error) {
+            throw new Exception($error, 1);
+        }
+    }
+
+    /**
      * Lista os documentos de um cliente
      */
     public function listaDocumentos(array $params): array
