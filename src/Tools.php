@@ -538,7 +538,7 @@ class Tools
 
 
     /**
-     * Função responsável por atualizar a resposta de sincronização de um clinete Contador
+     * Função responsável por atualizar a resposta de sincronização de um cliente Contador
      *
      * @param array $dados Dados a serem enviados para a atualização
      *
@@ -573,6 +573,52 @@ class Tools
             }
         } catch (\Throwable $th) {
             throw new Exception($th, 1);
+        }
+    }
+
+    /**
+     * Função responsável por enviar solicitação de emissão de nfe para o bpo contabil
+     *
+     * @param  int  $order_id
+     * @return \Illuminate\Http\Response
+     */
+    public function enviaEmissaoNfe(array $dados, int $order_id, array $params = []): array
+    {
+        $errors = [];
+        if (!isset($order_id) || empty($order_id)) {
+            $errors[] = 'É obrigatório o envio do order_id ou service_order_id';
+        }
+        if (!isset($dados['person_id']) || empty($dados['person_id'])) {
+            $errors[] = 'Informe a ID do cliente no NFContador';
+        }
+        if (!isset($dados['emit_installments']) && !empty($dados['emit_installments'])) {
+            $errors[] = 'Informe se irá emitir boletos';
+        }
+        if (!isset($dados['integration_id']) || empty($dados['integration_id'])) {
+            $errors[] = 'Informe o ID da integração';
+        }
+        if (!isset($dados['cpfcnpj']) || empty($dados['cpfcnpj'])) {
+            $errors[] = 'Informe o CPF/CNPJ do contador';
+        }
+
+        if (!empty($errors)) {
+            throw new Exception(implode("\r\n", $errors), 1);
+        }
+
+        try {
+            $response = $this->post("/customers/nfes/$order_id/emission", $dados, $params);
+
+            if ($response['httpCode'] === 200) {
+                return $response;
+            }
+
+            if (isset($response['body']->errors) && !empty($response['body']->errors)) {
+                throw new \Exception("\r\n".implode("\r\n", $response['body']->errors));
+            } else {
+                throw new \Exception(json_encode($response));
+            }
+        } catch (Exception $error) {
+            throw $error;
         }
     }
 
