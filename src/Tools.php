@@ -623,6 +623,55 @@ class Tools
     }
 
     /**
+     * Função responsável por enviar remessa de pagamentos do easy
+     *
+     * @param  int  $order_id
+     * @return \Illuminate\Http\Response
+     */
+    public function enviaRemessaPagamento(array $dados, int $easy_remittance_payment_id, array $params = []): array
+    {
+        $errors = [];
+        if (!isset($easy_remittance_payment_id) || empty($easy_remittance_payment_id)) {
+            $errors[] = 'É obrigatório o envio do easy_remittance_payment_id';
+        }
+        if (!isset($dados['person_id']) || empty($dados['person_id'])) {
+            $errors[] = 'Informe a ID do cliente no NFContador';
+        }
+        if (!isset($dados['integration_id']) || empty($dados['integration_id'])) {
+            $errors[] = 'Informe o ID da integração';
+        }
+        if (!isset($dados['cpfcnpj']) || empty($dados['cpfcnpj'])) {
+            $errors[] = 'Informe o CPF/CNPJ do contador';
+        }
+        if (!isset($dados['payments']) || empty($dados['payments']) || !is_array($dados['payments'])) {
+            $errors[] = 'Informe os pagamentos a serem enviados';
+        }
+        if (!isset($dados['easy_remittance_payment_name']) || empty($dados['easy_remittance_payment_name'])) {
+            $errors[] = 'Informe o nome da remessa de pagamentos';
+        }
+
+        if (!empty($errors)) {
+            throw new Exception(implode("\r\n", $errors), 1);
+        }
+
+        try {
+            $response = $this->post("/customers/schedule-payments-remittance/$easy_remittance_payment_id", $dados, $params);
+
+            if ($response['httpCode'] === 200) {
+                return $response;
+            }
+
+            if (isset($response['body']->errors) && !empty($response['body']->errors)) {
+                throw new \Exception("\r\n".implode("\r\n", $response['body']->errors));
+            } else {
+                throw new \Exception(json_encode($response));
+            }
+        } catch (Exception $error) {
+            throw $error;
+        }
+    }
+
+    /**
      * Execute a GET Request
      *
      * @param string $path
